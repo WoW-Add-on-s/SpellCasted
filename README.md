@@ -13,6 +13,7 @@ A World of Warcraft (Retail) addon that displays the icon of the spell you are c
   - ⚔️ **Interrupted** — icon tinted orange with a combat icon overlay
 - **Spell history**: a row of the last few spells you actually cast, with its
   own position, size and direction, and the older ones fading out
+- Settings panel in the same dark and gold look as the rest of the set
 - Built-in configuration panel (no commands to memorize)
 - Position, size, and opacity saved between sessions
 
@@ -42,11 +43,12 @@ Type `/sc` to open or close the configuration panel.
 | **Icon Size** | Slider from 32 to 512 px (default: 128) |
 | **Opacity** | Slider from 0.10 to 1.00 (default: 1.0) |
 | **Always show icon** | Checked = icon stays visible at all times with the last cast texture. Unchecked = icon disappears when not casting. |
-| **Unlock / Lock** | Allows dragging the icon anywhere on screen |
+| **Unlock / Lock** | Allows dragging the icon, and the history row, anywhere on screen |
 | **Reset** | Restores all settings to default and reloads the UI |
 | **Show the history** | A row of the spells you last cast |
 | **How many icons** | 2 to 12 (default: 5) |
 | **Icon size** | 16 to 96 px (default: 48) |
+| **Space between** | 0 to 24 px (default: 4) |
 | **Older ones fade** | The further back a spell is, the fainter its icon |
 | **Newest on the left** | Which end new spells appear at (default: the right) |
 | **Fill with examples** | Puts placeholder icons in the row, so it can be placed without casting anything |

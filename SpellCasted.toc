@@ -5,4 +5,5 @@
 ## Author: SpellCasted
 ## SavedVariables: SpellCastedDB
 
+UI.lua
 SpellCasted.lua

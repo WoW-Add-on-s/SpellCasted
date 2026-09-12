@@ -292,164 +292,184 @@ end
 -------------------------------------------------------------------------------
 -- Settings panel
 -------------------------------------------------------------------------------
-local panel = CreateFrame("Frame", "SpellCastedPanel", UIParent, "BasicFrameTemplateWithInset")
-panel:SetSize(320, 560)
-panel:SetPoint("CENTER")
-panel:SetMovable(true)
-panel:EnableMouse(true)
-panel:RegisterForDrag("LeftButton")
-panel:SetScript("OnDragStart", function(self) self:StartMoving() end)
-panel:SetScript("OnDragStop",  function(self) self:StopMovingOrSizing() end)
-panel:SetClampedToScreen(true)
-panel:Hide()
+local UI = SpellCasted.UI
 
-panel.TitleText:SetText("SpellCasted - Settings")
+local panel = UI.CreateWindow("SpellCastedPanel", 330, 610,
+    "SpellCasted", "what you are casting")
 
-local function MakeLabel(parent, text, x, y)
-    local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lbl:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    lbl:SetText(text)
-    return lbl
+local body = CreateFrame("Frame", nil, panel)
+body:SetPoint("TOPLEFT", panel, "TOPLEFT", 20, -54)
+body:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -20, 34)
+
+-- Everything on the panel that reads a setting, so one call puts the whole
+-- thing back in step after a reset or a fresh login.
+local watchers = {}
+
+local function RefreshPanel()
+    for _, fn in ipairs(watchers) do fn() end
 end
 
-local function MakeCheck(parent, label, x, y, initVal, onChange)
-    local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
-    cb:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    cb:SetChecked(initVal)
-    cb.Text:SetText(label)
-    cb:SetScript("OnClick", function(self) onChange(self:GetChecked() and true or false) end)
-    return cb
+local function AddHeading(y, text)
+    local fs = UI.Text(body, 11, "textDim")
+    fs:SetPoint("TOPLEFT", 0, -y)
+    fs:SetText(text)
+
+    local rule = UI.Divider(body)
+    rule:SetPoint("TOPLEFT", 0, -(y + 16))
+    rule:SetPoint("TOPRIGHT", 0, -(y + 16))
+
+    return y + 26
 end
 
-local function MakeSlider(parent, label, minVal, maxVal, step, initVal, x, y, onChange)
-    local s = CreateFrame("Slider", nil, parent, "OptionsSliderTemplate")
-    s:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
-    s:SetWidth(200)
-    s:SetMinMaxValues(minVal, maxVal)
-    s:SetValueStep(step)
-    s:SetValue(initVal)
-    s.Text:SetText(label)
-    s.Low:SetText(minVal)
-    s.High:SetText(maxVal)
-    local val = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    val:SetPoint("TOP", s, "BOTTOM", 0, -2)
-    val:SetText(initVal)
-    s:SetScript("OnValueChanged", function(self, v)
-        v = math.floor(v / step + 0.5) * step
-        val:SetText(string.format(step < 1 and "%.2f" or "%d", v))
-        onChange(v)
+local function AddCheck(y, label, tooltip, get, set)
+    local c = UI.CreateCheck(body, label, tooltip)
+    c:SetPoint("TOPLEFT", 0, -y)
+    c:SetPoint("TOPRIGHT", 0, -y)
+    c:SetScript("OnClick", function(self)
+        self:SetChecked(not self:GetChecked())
+        set(self:GetChecked())
     end)
-    return s
+
+    watchers[#watchers + 1] = function() c:SetChecked(get()) end
+    return y + 26
 end
 
--- Size
-MakeLabel(panel, "Icon size", 18, -40)
-MakeSlider(panel, "", 32, 512, 1, db("size"), 18, -60, function(v)
-    SpellCastedDB.size = v
-    frame:SetSize(v, v)
-    UpdateFeedbackOverlaySize()
-end)
+local function AddSlider(y, label, minV, maxV, step, get, set, formatter)
+    local row = UI.CreateSlider(body, label, minV, maxV, step, formatter)
+    row:SetPoint("TOPLEFT", 0, -y)
+    row:SetPoint("TOPRIGHT", 0, -y)
 
--- Opacity
-MakeLabel(panel, "Opacity", 18, -110)
-MakeSlider(panel, "", 0.1, 1.0, 0.05, db("alpha"), 18, -130, function(v)
-    SpellCastedDB.alpha = v
-    frame:SetAlpha(v)
-end)
+    row.slider:SetScript("OnValueChanged", function(_, value)
+        value = math.floor(value / step + 0.5) * step
+        row:SetDisplay(value)
+        if row.loading then return end
+        set(value)
+    end)
 
--- Always show the icon
-MakeLabel(panel, "Behaviour", 18, -180)
-local alwaysCb = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
-alwaysCb:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, -198)
-alwaysCb:SetChecked(db("alwaysShow"))
-alwaysCb.Text:SetText("Always show the icon")
-alwaysCb:SetScript("OnClick", function(self)
-    SpellCastedDB.alwaysShow = self:GetChecked()
-    if not self:GetChecked() and not icon:IsShown() then
-        icon:Hide()
-    elseif self:GetChecked() and lastTexture then
-        icon:SetTexture(lastTexture)
-        icon:Show()
+    watchers[#watchers + 1] = function()
+        row.loading = true
+        local v = get()
+        row.slider:SetValue(v)
+        row:SetDisplay(v)
+        row.loading = false
     end
+    return y + 42
+end
+
+local function Px(v) return string.format("%.0f px", v) end
+local function Pct(v) return string.format("%.0f%%", v * 100) end
+local function Count(v) return string.format("%.0f", v) end
+
+local y = AddHeading(0, "THE ICON")
+
+y = AddSlider(y, "Size", 32, 512, 1,
+    function() return db("size") end,
+    function(v)
+        SpellCastedDB.size = v
+        frame:SetSize(v, v)
+        UpdateFeedbackOverlaySize()
+    end, Px)
+
+y = AddSlider(y, "Opacity", 0.1, 1.0, 0.05,
+    function() return db("alpha") end,
+    function(v)
+        SpellCastedDB.alpha = v
+        frame:SetAlpha(v)
+        historyFrame:SetAlpha(v)
+    end, Pct)
+
+y = AddCheck(y, "Always show the icon",
+    "Off hides it between casts. On leaves the last spell up.",
+    function() return db("alwaysShow") end,
+    function(on)
+        SpellCastedDB.alwaysShow = on
+        if on and lastTexture then
+            icon:SetTexture(lastTexture)
+            icon:Show()
+        elseif not on then
+            icon:Hide()
+        end
+    end)
+
+y = AddHeading(y + 8, "SPELL HISTORY")
+
+y = AddCheck(y, "Show the history",
+    "A row of the spells you last cast, with a place of its own.",
+    function() return db("history") end,
+    function(on)
+        SpellCastedDB.history = on
+        RefreshHistory()
+    end)
+
+y = AddSlider(y, "How many icons", 2, 12, 1,
+    function() return db("historyCount") end,
+    function(v)
+        SpellCastedDB.historyCount = v
+        -- A shorter list keeps what still fits and drops the rest, rather than
+        -- holding on to entries nothing will ever show.
+        while #recent > v do table.remove(recent) end
+        RefreshHistory()
+    end, Count)
+
+y = AddSlider(y, "Icon size", 16, 96, 1,
+    function() return db("historySize") end,
+    function(v)
+        SpellCastedDB.historySize = v
+        RefreshHistory()
+    end, Px)
+
+y = AddSlider(y, "Space between", 0, 24, 1,
+    function() return db("historySpacing") end,
+    function(v)
+        SpellCastedDB.historySpacing = v
+        RefreshHistory()
+    end, Px)
+
+y = AddCheck(y, "Older ones fade", nil,
+    function() return db("historyFade") end,
+    function(on)
+        SpellCastedDB.historyFade = on
+        RefreshHistory()
+    end)
+
+y = AddCheck(y, "Newest on the left", nil,
+    function() return db("historyNewestLeft") end,
+    function(on)
+        SpellCastedDB.historyNewestLeft = on
+        RefreshHistory()
+    end)
+
+local exampleBtn = UI.CreateButton(body, "Fill with examples", 140, 24)
+exampleBtn:SetPoint("TOPLEFT", 0, -(y + 4))
+exampleBtn:SetScript("OnClick", function()
+    FillHistoryExample()
+    RefreshPanel()
 end)
 
--- Lock / Unlock
-MakeLabel(panel, "Position", 18, -232)
-local lockBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-lockBtn:SetSize(120, 26)
-lockBtn:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, -250)
-lockBtn:SetText(locked and "Unlock" or "Lock")
+local clearBtn = UI.CreateButton(body, "Empty it", 100, 24)
+clearBtn:SetPoint("TOPLEFT", 148, -(y + 4))
+clearBtn:SetScript("OnClick", function() ClearHistory() end)
+y = y + 40
+
+y = AddHeading(y, "PLACING THEM")
+
+local lockBtn = UI.CreateButton(body, "Unlock", 120, 26, "primary")
+lockBtn:SetPoint("TOPLEFT", 0, -y)
 lockBtn:SetScript("OnClick", function(self)
     SetLocked(not locked)
     self:SetText(locked and "Unlock" or "Lock")
 end)
 
--- Reset
-local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-resetBtn:SetSize(100, 26)
-resetBtn:SetPoint("TOPLEFT", panel, "TOPLEFT", 150, -250)
-resetBtn:SetText("Reset")
+local resetBtn = UI.CreateButton(body, "Reset", 100, 26, "danger")
+resetBtn:SetPoint("TOPLEFT", 128, -y)
 resetBtn:SetScript("OnClick", function()
     SpellCastedDB = {}
     ReloadUI()
 end)
 
--- History
-MakeLabel(panel, "Spell history", 18, -290)
-
-local historyCb = MakeCheck(panel, "Show the history", 18, -308,
-    db("history"), function(on)
-        SpellCastedDB.history = on
-        RefreshHistory()
-    end)
-
-MakeLabel(panel, "How many icons", 18, -338)
-MakeSlider(panel, "", 2, 12, 1, db("historyCount"), 18, -358, function(v)
-    SpellCastedDB.historyCount = v
-    -- A shorter list keeps what still fits and drops the rest, rather than
-    -- holding on to entries nothing will ever show.
-    while #recent > v do table.remove(recent) end
-    RefreshHistory()
-end)
-
-MakeLabel(panel, "Icon size", 18, -408)
-MakeSlider(panel, "", 16, 96, 1, db("historySize"), 18, -428, function(v)
-    SpellCastedDB.historySize = v
-    RefreshHistory()
-end)
-
-local fadeCb = MakeCheck(panel, "Older ones fade", 18, -462,
-    db("historyFade"), function(on)
-        SpellCastedDB.historyFade = on
-        RefreshHistory()
-    end)
-
-local sideCb = MakeCheck(panel, "Newest on the left", 18, -486,
-    db("historyNewestLeft"), function(on)
-        SpellCastedDB.historyNewestLeft = on
-        RefreshHistory()
-    end)
-
-local exampleBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-exampleBtn:SetSize(140, 26)
-exampleBtn:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, -512)
-exampleBtn:SetText("Fill with examples")
-exampleBtn:SetScript("OnClick", function()
-    FillHistoryExample()
-    historyCb:SetChecked(true)
-end)
-
-local clearBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-clearBtn:SetSize(120, 26)
-clearBtn:SetPoint("TOPLEFT", panel, "TOPLEFT", 166, -512)
-clearBtn:SetText("Empty it")
-clearBtn:SetScript("OnClick", function()
-    ClearHistory()
-end)
-
-local info = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-info:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 18, 16)
-info:SetText("|cffaaaaaa/sc  opens and closes this panel|r")
+local info = UI.Text(panel, 11, "textDim")
+info:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 20, 14)
+info:SetText("/sc opens and closes this panel")
 
 -------------------------------------------------------------------------------
 -- Cast events
@@ -471,11 +491,7 @@ eventFrame:SetScript("OnEvent", function(self, event, unit, _, spellID)
             frame:SetPoint("CENTER", UIParent, "CENTER", db("x"), db("y"))
             frame:SetSize(db("size"), db("size"))
             frame:SetAlpha(db("alpha"))
-            alwaysCb:SetChecked(db("alwaysShow"))
-
-            historyCb:SetChecked(db("history"))
-            fadeCb:SetChecked(db("historyFade"))
-            sideCb:SetChecked(db("historyNewestLeft"))
+            RefreshPanel()
             RefreshHistory()
         end
         return
@@ -510,7 +526,12 @@ SLASH_SPELLCASTED1 = "/sc"
 SLASH_SPELLCASTED2 = "/spellcasted"
 
 SlashCmdList["SPELLCASTED"] = function()
-    if panel:IsShown() then panel:Hide() else panel:Show() end
+    if panel:IsShown() then
+        panel:Hide()
+    else
+        RefreshPanel()
+        panel:Show()
+    end
 end
 
 SetLocked(true)
