@@ -11,6 +11,8 @@ A World of Warcraft (Retail) addon that displays the icon of the spell you are c
 - Visual feedback on cast failure:
   - ❌ **Cancelled** — icon tinted red with a red cross overlay
   - ⚔️ **Interrupted** — icon tinted orange with a combat icon overlay
+- **Spell history**: a row of the last few spells you actually cast, with its
+  own position, size and direction, and the older ones fading out
 - Built-in configuration panel (no commands to memorize)
 - Position, size, and opacity saved between sessions
 
@@ -42,6 +44,21 @@ Type `/sc` to open or close the configuration panel.
 | **Always show icon** | Checked = icon stays visible at all times with the last cast texture. Unchecked = icon disappears when not casting. |
 | **Unlock / Lock** | Allows dragging the icon anywhere on screen |
 | **Reset** | Restores all settings to default and reloads the UI |
+| **Show the history** | A row of the spells you last cast |
+| **How many icons** | 2 to 12 (default: 5) |
+| **Icon size** | 16 to 96 px (default: 48) |
+| **Older ones fade** | The further back a spell is, the fainter its icon |
+| **Newest on the left** | Which end new spells appear at (default: the right) |
+| **Fill with examples** | Puts placeholder icons in the row, so it can be placed without casting anything |
+| **Empty** | Clears the row |
+
+### Spell History
+
+Only a cast that actually went through is written down: starting one, failing
+one and being cut off are not casting. A spell that announces itself twice in a
+row counts once. The row has its own position - unlock, drag it where you want
+it, lock again - because on a stream layout it does not always want to sit under
+the main icon.
 
 ### Moving the Icon
 

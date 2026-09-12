@@ -1,7 +1,7 @@
 ## Interface: 120001
 ## Title: SpellCasted
-## Notes: Displays the icon of the spell currently being cast (OBS overlay)
-## Version: 1.0
+## Notes: Displays the icon of the spell currently being cast, and a history of what you cast (OBS overlay)
+## Version: 1.1
 ## Author: SpellCasted
 ## SavedVariables: SpellCastedDB
 
