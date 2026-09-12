@@ -3,7 +3,7 @@ local ADDON_NAME = "SpellCasted"
 local DEFAULT = {
     x = 0, y = -200, size = 128, alpha = 1.0, alwaysShow = true,
 
-    -- Historique des sorts lancés
+    -- The row of what you have cast
     history = false,
     historyCount = 5,
     historySize = 48,
@@ -58,7 +58,7 @@ glow:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT",  4, -4)
 glow:SetColorTexture(1, 0.8, 0, 0.3)
 glow:Hide()
 
--- Feedback overlay icon (Annulé / Interrompu)
+-- Overlay shown when a cast is cancelled or interrupted
 local feedbackOverlay = frame:CreateTexture(nil, "OVERLAY")
 feedbackOverlay:SetPoint("CENTER", frame, "CENTER")
 feedbackOverlay:SetSize(frame:GetWidth() * 0.6, frame:GetHeight() * 0.6)
@@ -70,11 +70,11 @@ local function UpdateFeedbackOverlaySize()
 end
 
 -------------------------------------------------------------------------------
--- Historique des sorts
+-- Spell history
 --
--- Une rangée d'icônes, la plus récente à un bout. Elle a son propre cadre et sa
--- propre position : sur une capture OBS, on ne veut pas forcément la rangée
--- collée sous l'icône principale.
+-- A row of icons with the most recent at one end. It has a frame and a position
+-- of its own: on a stream layout, the row does not always want to sit under the
+-- main icon.
 -------------------------------------------------------------------------------
 local historyFrame = CreateFrame("Frame", "SpellCastedHistory", UIParent)
 historyFrame:SetMovable(true)
@@ -97,7 +97,7 @@ historyBg:SetColorTexture(0, 0, 0, 0.4)
 historyBg:Hide()
 
 local slots = {}
-local recent = {}          -- le plus récent en premier
+local recent = {}          -- most recent first
 local lastPushed, lastPushedAt = nil, 0
 
 local function HistorySlot(index)
@@ -125,8 +125,8 @@ local function LayoutHistory()
         tex:SetSize(size, size)
         tex:ClearAllPoints()
 
-        -- L'index 1 est toujours le plus récent ; seul le bout où il se place
-        -- change.
+        -- Slot one is always the most recent; only the end it is drawn at
+        -- changes.
         local offset = (i - 1) * (size + gap)
         if db("historyNewestLeft") then
             tex:SetPoint("LEFT", historyFrame, "LEFT", offset, 0)
@@ -135,7 +135,7 @@ local function LayoutHistory()
         end
     end
 
-    -- Les emplacements en trop restent en place mais ne se montrent plus.
+    -- Slots beyond the count stay where they are but stop showing.
     for i = count + 1, #slots do
         slots[i]:Hide()
     end
@@ -156,8 +156,7 @@ local function RefreshHistory()
 
         if entry then
             tex:SetTexture(entry.texture)
-            -- Les plus anciens s'effacent, pour que le dernier lancé se lise
-            -- d'un coup d'oeil.
+            -- The older ones fade, so the last one cast reads at a glance.
             local fade = 1
             if db("historyFade") and count > 1 then
                 fade = 1 - ((i - 1) / count) * 0.75
@@ -175,8 +174,8 @@ end
 local function PushHistory(spellID, texture)
     if not texture then return end
 
-    -- Certains sorts annoncent leur réussite plusieurs fois de suite ; deux
-    -- entrées identiques coup sur coup ne sont pas deux lancers.
+    -- Some spells announce their success more than once in a row, and two
+    -- identical entries back to back are not two casts.
     local now = GetTime()
     if spellID and spellID == lastPushed and (now - lastPushedAt) < 0.25 then
         return
@@ -223,12 +222,12 @@ local function FillHistoryExample()
 end
 
 local cancelTimer = nil
-local lastTexture = nil  -- dernière texture affichée
+local lastTexture = nil  -- the last texture shown
 local locked = true
 
 local function HideOrKeep()
     if db("alwaysShow") then
-        -- garde la dernière icône visible, sans glow
+        -- keep the last icon up, without the glow
         icon:SetVertexColor(1, 1, 1)
         if lastTexture then
             icon:SetTexture(lastTexture)
@@ -304,7 +303,7 @@ panel:SetScript("OnDragStop",  function(self) self:StopMovingOrSizing() end)
 panel:SetClampedToScreen(true)
 panel:Hide()
 
-panel.TitleText:SetText("SpellCasted — Paramètres")
+panel.TitleText:SetText("SpellCasted - Settings")
 
 local function MakeLabel(parent, text, x, y)
     local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
@@ -343,27 +342,27 @@ local function MakeSlider(parent, label, minVal, maxVal, step, initVal, x, y, on
     return s
 end
 
--- Taille
-MakeLabel(panel, "Taille de l'icône", 18, -40)
+-- Size
+MakeLabel(panel, "Icon size", 18, -40)
 MakeSlider(panel, "", 32, 512, 1, db("size"), 18, -60, function(v)
     SpellCastedDB.size = v
     frame:SetSize(v, v)
     UpdateFeedbackOverlaySize()
 end)
 
--- Opacité
-MakeLabel(panel, "Opacité", 18, -110)
+-- Opacity
+MakeLabel(panel, "Opacity", 18, -110)
 MakeSlider(panel, "", 0.1, 1.0, 0.05, db("alpha"), 18, -130, function(v)
     SpellCastedDB.alpha = v
     frame:SetAlpha(v)
 end)
 
--- Toujours afficher l'icône
-MakeLabel(panel, "Comportement", 18, -180)
+-- Always show the icon
+MakeLabel(panel, "Behaviour", 18, -180)
 local alwaysCb = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
 alwaysCb:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, -198)
 alwaysCb:SetChecked(db("alwaysShow"))
-alwaysCb.Text:SetText("Toujours afficher l'icône")
+alwaysCb.Text:SetText("Always show the icon")
 alwaysCb:SetScript("OnClick", function(self)
     SpellCastedDB.alwaysShow = self:GetChecked()
     if not self:GetChecked() and not icon:IsShown() then
@@ -379,53 +378,53 @@ MakeLabel(panel, "Position", 18, -232)
 local lockBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 lockBtn:SetSize(120, 26)
 lockBtn:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, -250)
-lockBtn:SetText(locked and "Déverrouiller" or "Verrouiller")
+lockBtn:SetText(locked and "Unlock" or "Lock")
 lockBtn:SetScript("OnClick", function(self)
     SetLocked(not locked)
-    self:SetText(locked and "Déverrouiller" or "Verrouiller")
+    self:SetText(locked and "Unlock" or "Lock")
 end)
 
 -- Reset
 local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 resetBtn:SetSize(100, 26)
 resetBtn:SetPoint("TOPLEFT", panel, "TOPLEFT", 150, -250)
-resetBtn:SetText("Réinitialiser")
+resetBtn:SetText("Reset")
 resetBtn:SetScript("OnClick", function()
     SpellCastedDB = {}
     ReloadUI()
 end)
 
--- Historique
-MakeLabel(panel, "Historique des sorts", 18, -290)
+-- History
+MakeLabel(panel, "Spell history", 18, -290)
 
-local historyCb = MakeCheck(panel, "Afficher l'historique", 18, -308,
+local historyCb = MakeCheck(panel, "Show the history", 18, -308,
     db("history"), function(on)
         SpellCastedDB.history = on
         RefreshHistory()
     end)
 
-MakeLabel(panel, "Nombre d'icones", 18, -338)
+MakeLabel(panel, "How many icons", 18, -338)
 MakeSlider(panel, "", 2, 12, 1, db("historyCount"), 18, -358, function(v)
     SpellCastedDB.historyCount = v
-    -- Une liste plus courte qu'avant garde ce qui tient et laisse tomber le
-    -- reste, plutot que de garder des entrees que rien ne montrera.
+    -- A shorter list keeps what still fits and drops the rest, rather than
+    -- holding on to entries nothing will ever show.
     while #recent > v do table.remove(recent) end
     RefreshHistory()
 end)
 
-MakeLabel(panel, "Taille des icones", 18, -408)
+MakeLabel(panel, "Icon size", 18, -408)
 MakeSlider(panel, "", 16, 96, 1, db("historySize"), 18, -428, function(v)
     SpellCastedDB.historySize = v
     RefreshHistory()
 end)
 
-local fadeCb = MakeCheck(panel, "Les plus anciennes s'estompent", 18, -462,
+local fadeCb = MakeCheck(panel, "Older ones fade", 18, -462,
     db("historyFade"), function(on)
         SpellCastedDB.historyFade = on
         RefreshHistory()
     end)
 
-local sideCb = MakeCheck(panel, "La plus recente a gauche", 18, -486,
+local sideCb = MakeCheck(panel, "Newest on the left", 18, -486,
     db("historyNewestLeft"), function(on)
         SpellCastedDB.historyNewestLeft = on
         RefreshHistory()
@@ -434,7 +433,7 @@ local sideCb = MakeCheck(panel, "La plus recente a gauche", 18, -486,
 local exampleBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 exampleBtn:SetSize(140, 26)
 exampleBtn:SetPoint("TOPLEFT", panel, "TOPLEFT", 18, -512)
-exampleBtn:SetText("Remplir d'exemples")
+exampleBtn:SetText("Fill with examples")
 exampleBtn:SetScript("OnClick", function()
     FillHistoryExample()
     historyCb:SetChecked(true)
@@ -443,14 +442,14 @@ end)
 local clearBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
 clearBtn:SetSize(120, 26)
 clearBtn:SetPoint("TOPLEFT", panel, "TOPLEFT", 166, -512)
-clearBtn:SetText("Vider")
+clearBtn:SetText("Empty it")
 clearBtn:SetScript("OnClick", function()
     ClearHistory()
 end)
 
 local info = panel:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 info:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 18, 16)
-info:SetText("|cffaaaaaa/sc  pour ouvrir/fermer ce panneau|r")
+info:SetText("|cffaaaaaa/sc  opens and closes this panel|r")
 
 -------------------------------------------------------------------------------
 -- Cast events
