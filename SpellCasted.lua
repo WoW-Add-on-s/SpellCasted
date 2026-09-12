@@ -23,6 +23,30 @@ local function db(key)
 end
 
 -------------------------------------------------------------------------------
+-- Where a frame ended up
+--
+-- StartMoving re-anchors a frame wherever it suits the game, so what GetPoint
+-- hands back afterwards is not necessarily an offset from the middle of the
+-- screen - which is what everything here puts back. Reading those numbers as
+-- if they were is why a frame you had just dragged jumped back on its own.
+--
+-- So the place is worked out from the screen instead, and the frame is put
+-- back on its middle anchor straight away: what is written down and where it
+-- actually sits then say the same thing.
+-------------------------------------------------------------------------------
+local function RememberPlace(self, xKey, yKey)
+    local x, y = self:GetCenter()
+    local ux, uy = UIParent:GetCenter()
+    if not (x and y and ux and uy) then return end
+
+    SpellCastedDB[xKey] = math.floor(x - ux + 0.5)
+    SpellCastedDB[yKey] = math.floor(y - uy + 0.5)
+
+    self:ClearAllPoints()
+    self:SetPoint("CENTER", UIParent, "CENTER", SpellCastedDB[xKey], SpellCastedDB[yKey])
+end
+
+-------------------------------------------------------------------------------
 -- Icon frame
 -------------------------------------------------------------------------------
 local frame = CreateFrame("Frame", "SpellCastedFrame", UIParent)
@@ -37,9 +61,7 @@ frame:SetClampedToScreen(true)
 frame:SetScript("OnDragStart", function(self) self:StartMoving() end)
 frame:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
-    local _, _, _, x, y = self:GetPoint()
-    SpellCastedDB.x = x
-    SpellCastedDB.y = y
+    RememberPlace(self, "x", "y")
 end)
 
 local bg = frame:CreateTexture(nil, "BACKGROUND")
@@ -86,9 +108,7 @@ historyFrame:Hide()
 historyFrame:SetScript("OnDragStart", function(self) self:StartMoving() end)
 historyFrame:SetScript("OnDragStop", function(self)
     self:StopMovingOrSizing()
-    local _, _, _, x, y = self:GetPoint()
-    SpellCastedDB.hx = x
-    SpellCastedDB.hy = y
+    RememberPlace(self, "hx", "hy")
 end)
 
 local historyBg = historyFrame:CreateTexture(nil, "BACKGROUND")
@@ -110,14 +130,19 @@ local function HistorySlot(index)
     return tex
 end
 
+local function PlaceHistory()
+    historyFrame:ClearAllPoints()
+    historyFrame:SetPoint("CENTER", UIParent, "CENTER", db("hx"), db("hy"))
+end
+
+PlaceHistory()
+
 local function LayoutHistory()
     local count = db("historyCount")
     local size = db("historySize")
     local gap = db("historySpacing")
 
     historyFrame:SetSize(count * size + (count - 1) * gap, size)
-    historyFrame:ClearAllPoints()
-    historyFrame:SetPoint("CENTER", UIParent, "CENTER", db("hx"), db("hy"))
     historyFrame:SetAlpha(db("alpha"))
 
     for i = 1, count do
@@ -491,6 +516,7 @@ eventFrame:SetScript("OnEvent", function(self, event, unit, _, spellID)
             frame:SetPoint("CENTER", UIParent, "CENTER", db("x"), db("y"))
             frame:SetSize(db("size"), db("size"))
             frame:SetAlpha(db("alpha"))
+            PlaceHistory()
             RefreshPanel()
             RefreshHistory()
         end
